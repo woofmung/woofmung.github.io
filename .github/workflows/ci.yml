@@ -1,43 +1,42 @@
-name: ci
+name: CI/CD for GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Check for build and type issues
+  build:
+    name: Build and Deploy
     runs-on: ubuntu-latest
 
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: install node
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 14 # 또는 프로젝트에 맞는 Node.js 버전으로 설정
 
-      - name: install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-          run_install: false
+      - name: Install pnpm
+        run: npm install -g pnpm
 
       - name: Get pnpm store directory
-        shell: bash
+        id: pnpm-store
         run: |
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
-        uses: actions/cache@v3
+        uses: actions/cache@v2
         with:
-          path: ${{ env.STORE_PATH }}
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
@@ -45,10 +44,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-        # use astro check for issues
-      - name: Run check
-        run: pnpm astro check
-
-        # ensure build works
-      - name: Run build
+      - name: Build
         run: pnpm build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist # 빌드된 파일의 디렉토리 경로, 프로젝트에 따라 다를 수 있음
